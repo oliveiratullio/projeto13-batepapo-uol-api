@@ -1,5 +1,4 @@
 import express from "express"
-import mongoose from "mongoose"
 import cors from "cors"
 import Joi from "joi"
 import dotenv from "dotenv"
@@ -14,10 +13,10 @@ let db
 const mongoClient = new MongoClient(process.env.DATABASE_URL)
 mongoClient.connect()
     .then(() => db = mongoClient.db())
-    .catch((err) => res.status(500).send(err.message));
+    .catch((err) => console.log(err.message));
 //
 const schema = Joi.object({
-    name: Joi.string().min(1).required;
+    name: Joi.string().min(1).required();
 })
 const messageSchema = Joi.object({
     from: Joi.string().required(),
@@ -30,17 +29,17 @@ const messageSchema = Joi.object({
 app.post('/participants', async (req, res) => {
     try {
       const { name } = await participantSchema.validateAsync(req.body);
-      const db = await dbPromise;
-      const participant = await db.collection('participants').findOne({ name });
+      const dbPost = await dbPromise;
+      const participant = await dbPost.collection('participants').findOne({ name });
       if (participant) {
         res.sendStatus(409);
       } else {
-        await db.collection('participants').insertOne({
+        await dbPost.collection('participants').insertOne({
           name,
           lastStatus: Date.now(),
         });
         const now = dayjs().format('HH:mm:ss');
-        await db.collection('messages').insertOne({
+        await dbPost.collection('messages').insertOne({
           from: name,
           to: 'Todos',
           text: 'entra na sala...',
@@ -58,6 +57,13 @@ app.post('/participants', async (req, res) => {
       }
     }
   });
-
+  app.get("/participants", async (req, res) => {
+    try {
+      const participants = await db.collection("participants").find().toArray();
+      res.send(participants);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  });
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
