@@ -57,12 +57,47 @@ app.post('/participants', async (req, res) => {
       }
     }
   });
+
   app.get("/participants", async (req, res) => {
     try {
       const participants = await db.collection("participants").find().toArray();
       res.send(participants);
-    } catch (error) {
-      res.status(500).send(error.message);
+    } catch (err) {
+      res.status(500).send(err.message);
+    }
+  });
+
+  app.post("/messages", async (req, res) => {
+    try {
+      const { error, value } = messageSchema.validate(req.body);
+      if (error) {
+        return res.status(422).send("Campos inválidos");
+      }
+      const { to, text, type } = value;
+      const from = req.headers.user;
+      if (!from) {
+        return res.status(422).send("Problema com o usuário!");
+      }
+      const db = mongoClient.db();
+      const participant = await db
+        .collection("participants")
+        .findOne({ name: from });
+      if (!participant) {
+        return res.status(422).send(`Participante '${from}' não encontrado!`);
+      }
+      const now = dayjs().utc().tz("America/Sao_Paulo").format("HH:mm:ss");
+      const message = {
+        from,
+        to,
+        text,
+        type,
+        time: now,
+      };
+      await db.collection("messages").insertOne(message);
+      return res.sendStatus(201);
+    } catch (err) {
+      console.error(err);
+      return res.sendStatus(500);
     }
   });
 const PORT = 5000
