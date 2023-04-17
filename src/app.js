@@ -16,7 +16,7 @@ mongoClient.connect()
     .catch((err) => console.log(err.message));
 //
 const schema = Joi.object({
-    name: Joi.string().min(1).required();
+    name: Joi.string().min(1).required()
 })
 const messageSchema = Joi.object({
     from: Joi.string().required(),
