@@ -66,31 +66,22 @@ app.get("/participants", async (req, res) => {
     
   });
 
-app.post('/messages', async (req, res) => {
-    const { user } = req.headers;
-    const { limit } = req.query
-    const numberLimit = Number(limit)
-    if(limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))){
-      return res.sendStatus(422)
+  app.post("/messages", async (req, res) => {
+    const { user } = req.headers
+    const validation = messageSchema.validate({ ...req.body, from: user }, { abortEarly: false })
+    if (validation.error) {
+        return res.status(422).send(validation.error.details.map(detail => detail.message))
     }
-  
     try {
-      const participant = await db.collection("participants").findOne({name})
-        if (participant) return res.sendStatus(409)
-        await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
-        const message = {
-            from: name,
-            to: 'Todos',
-            text: 'entra na sala...',
-            type: 'status',
-            time: dayjs(timestamp).format("HH:mm:ss")
-        }
+        const participant = await db.collection("participants").findOne({ name: user })
+        if (!participant) return res.sendStatus(422)
+        const message = { ...req.body, from: user, time: dayjs().format("HH:mm:ss") }
         await db.collection("messages").insertOne(message)
         res.sendStatus(201)
     } catch (err) {
-      res.status(500).send(err.message)
+        res.status(500).send(err.message)
     }
-  });
+})
 app.get("/messages", async (req, res) => {
     try {
       const user = req.header("User");
