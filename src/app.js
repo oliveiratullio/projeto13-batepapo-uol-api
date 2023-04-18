@@ -83,31 +83,21 @@ app.post("/messages", async (req, res) => {
     }
 })
 app.get("/messages", async (req, res) => {
-  const user = req.header("User");
-  const limit = req.query
+  const { user } = req.headers
+  const { limit } = req.query
   const numberLimit = Number(limit)
-  if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))){ 
-    return res.status(422)
-  }  
+  if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))) return res.sendStatus(422)
   try {
       const messages = await db.collection("messages")
-        .find({
-          $or: [
-            { type: "message" },
-            { from: user },
-            { to: { $in: ["Todos", user] }  },
-            { from: user, type: "message" },
-          ]
-        })
-        .sort(({ $natural: -1 }))
-        .limit(limit === undefined ? 0 : numberLimit)
-        .toArray()
-      res.status(200)
-    } catch (err) {
-      console.error(err);
+          .find({ $or: [{ from: user }, { to: { $in: ["Todos", user] } }, { type: "message" }] })
+          .sort(({ $natural: -1 }))
+          .limit(limit === undefined ? 0 : numberLimit)
+          .toArray()
+      res.send(messages)
+  } catch (err) {
       res.status(500).send(err.message)
-    }
-});
+  }
+})
 app.post("/status", async (req, res) =>{
   const {user} = req.headers
   if(!user){
