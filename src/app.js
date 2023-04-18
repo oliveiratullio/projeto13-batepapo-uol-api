@@ -16,7 +16,10 @@ try{
 } catch(err) {
   console.log(err.message)
 }
-const schema = Joi.object({
+
+const db = mongoClient.db()
+
+const participantSchema = Joi.object({
     name: Joi.string().min(1).required()
 })
 const messageSchema = Joi.object({
@@ -24,40 +27,33 @@ const messageSchema = Joi.object({
     to: Joi.string().min(1).required(),
     text: Joi.string().min(1).required(),
     type: Joi.string().valid("message", "private_message").required(),
-    time: Joi.string()
 })
 
 app.post('/participants', async (req, res) => {
-    try {
-      const { name } = await participantSchema.validateAsync(req.body);
-      const dbPost = await dbPromise;
-      const participant = await dbPost.collection('participants').findOne({ name });
-      if (participant) {
-        res.sendStatus(409);
-      } else {
-        await dbPost.collection('participants').insertOne({
-          name,
-          lastStatus: Date.now(),
-        });
-        const now = dayjs().format('HH:mm:ss');
-        await dbPost.collection('messages').insertOne({
+      const { name } = req.body;
+      const validation = participantSchema.validate(req.body, {abortEarly: false})
+      if (validation.error) {
+        return res.status(422).send(validation.error.details.map(detail => detail.message))
+      }
+      try{
+        const participant = await db.collection("participants").findOne({name: name})
+        if (!participant){
+          return res.sendStatus(409)
+        }
+        await db.collection("participants").insertOne({name, lastStatus: Date.now()})
+        const message ={
           from: name,
           to: 'Todos',
           text: 'entra na sala...',
           type: 'status',
-          time: now,
-        });
-        res.sendStatus(201);
+          time: dayjs(Date.now()).format("HH:mm:ss")
+        }
+        await db.collection("messages").insertOne(message)
+        res.sendStatus(201)
+      } catch (err) {
+        res.status(500).send(err.message)
       }
-    } catch (err) {
-      if (err.isJoi) {
-        res.status(422).send('Invalid input');
-      } else {
-        console.error(err);
-        res.sendStatus(500);
-      }
-    }
-  });
+    });
 
   app.get("/participants", async (req, res) => {
     try {
@@ -66,6 +62,7 @@ app.post('/participants', async (req, res) => {
     } catch (err) {
       res.status(500).send(err.message);
     }
+    
   });
 
   app.post("/messages", async (req, res) => {
