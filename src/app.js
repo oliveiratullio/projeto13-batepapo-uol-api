@@ -66,37 +66,25 @@ app.post("/participants", async (req, res) => {
     
   });
 
-  app.post("/messages", async (req, res) => {
+  app.post('/messages', async (req, res) => {
+    const { user } = req.headers;
+  
     try {
-      const { error, value } = messageSchema.validate(req.body);
-      if (error) {
-        return res.status(422).send("Campos inválidos");
+      const participant = await db.collection('participants').findOne({ name: user });
+      if (!participant) return res.sendStatus(422);
+  
+      const { body } = req;
+      const message = { ...body, from: user, time: dayjs().format('HH:mm:ss') };
+  
+      const validation = messageSchema.validate(message, { abortEarly: false });
+      if (validation.error) {
+        return res.status(422).send(validation.error.details.map(detail => detail.message));
       }
-      const { to, text, type } = value;
-      const from = req.headers.user;
-      if (!from) {
-        return res.status(422).send("Problema com o usuário!");
-      }
-      const db = mongoClient.db();
-      const participant = await db
-        .collection("participants")
-        .findOne({ name: from });
-      if (!participant) {
-        return res.status(422).send(`Participante '${from}' não encontrado!`);
-      }
-      const now = dayjs().utc().tz("America/Sao_Paulo").format("HH:mm:ss");
-      const message = {
-        from,
-        to,
-        text,
-        type,
-        time: now,
-      };
-      await db.collection("messages").insertOne(message);
-      return res.sendStatus(201);
+  
+      await db.collection('messages').insertOne(message);
+      res.sendStatus(201);
     } catch (err) {
-      console.error(err);
-      return res.sendStatus(500);
+      res.status(500).send(err.message);
     }
   });
   app.get("/messages", async (req, res) => {
