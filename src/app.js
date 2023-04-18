@@ -87,6 +87,8 @@ app.post('/messages', async (req, res) => {
         }
         await db.collection("messages").insertOne(message)
         res.sendStatus(201)
+    } catch (err) {
+      res.status(500).send(err.message)
     }
   });
 app.get("/messages", async (req, res) => {
