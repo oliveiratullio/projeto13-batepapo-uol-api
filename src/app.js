@@ -68,19 +68,15 @@ app.post("/participants", async (req, res) => {
 
   app.post('/messages', async (req, res) => {
     const { user } = req.headers;
-  
+    const validation = messageSchema.validate(message, { abortEarly: false });
+    if (validation.error) {
+      return res.status(422).send(validation.error.details.map(detail => detail.message));
+    }
     try {
       const participant = await db.collection('participants').findOne({ name: user });
       if (!participant) return res.sendStatus(422);
-  
       const { body } = req;
       const message = { ...body, from: user, time: dayjs().format('HH:mm:ss') };
-  
-      const validation = messageSchema.validate(message, { abortEarly: false });
-      if (validation.error) {
-        return res.status(422).send(validation.error.details.map(detail => detail.message));
-      }
-  
       await db.collection('messages').insertOne(message);
       res.sendStatus(201);
     } catch (err) {
