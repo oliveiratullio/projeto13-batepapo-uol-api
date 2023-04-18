@@ -66,7 +66,7 @@ app.get("/participants", async (req, res) => {
     
   });
 
-  app.post("/messages", async (req, res) => {
+app.post("/messages", async (req, res) => {
     const { user } = req.headers
     const validation = messageSchema.validate({ ...req.body, from: user }, { abortEarly: false })
     if (validation.error) {
@@ -83,34 +83,30 @@ app.get("/participants", async (req, res) => {
     }
 })
 app.get("/messages", async (req, res) => {
-    try {
-      const user = req.header("User");
-      const limit = parseInt(req.query.limit);
-      const { error } = schema.validate({ limit });
-      if (error) {
-        return res.status(422).json({ error: error.details[0].message });
-      }
-      await client.connect();
-      const db = client.db("chat");
-      const messages = await db
-        .collection("messages")
+  const user = req.header("User");
+  const limit = req.query
+  const numberLimit = Number(limit)
+  if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))){ 
+    return res.status(422)
+  }  
+  try {
+      const messages = await db.collection("messages")
         .find({
           $or: [
             { type: "message" },
-            { from: "Todos" },
-            { to: user, type: "private_message" },
-            { from: user, type: "private_message" },
-          ],
+            { from: user },
+            { to: { $in: ["Todos", user] }  },
+            { from: user, type: "message" },
+          ]
         })
-        .sort({ time: -1 })
-        .limit(limit)
-        .toArray();
-      await client.close();
-      res.status(200).json(messages);
+        .sort(({ $natural: -1 }))
+        .limit(limit === undefined ? 0 : numberLimit)
+        .toArray()
+      res.status(200)
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
+      res.status(500).send(err.message)
     }
-  });
+});
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
