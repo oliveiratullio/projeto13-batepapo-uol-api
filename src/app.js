@@ -9,12 +9,13 @@ app.use(cors());
 app.use(express.json())
 dotenv.config() 
 
-let db
 const mongoClient = new MongoClient(process.env.DATABASE_URL)
-mongoClient.connect()
-    .then(() => db = mongoClient.db())
-    .catch((err) => console.log(err.message));
-//
+try{
+  await mongoClient.connect
+  console.log('MongoDB Conectado')
+} catch(err) {
+  console.log(err.message)
+}
 const schema = Joi.object({
     name: Joi.string().min(1).required()
 })
@@ -98,6 +99,36 @@ app.post('/participants', async (req, res) => {
     } catch (err) {
       console.error(err);
       return res.sendStatus(500);
+    }
+  });
+  app.get("/messages", async (req, res) => {
+    try {
+      const user = req.header("User");
+      const limit = parseInt(req.query.limit);
+      const { error } = schema.validate({ limit });
+      if (error) {
+        return res.status(422).json({ error: error.details[0].message });
+      }
+      await client.connect();
+      const db = client.db("chat");
+      const messages = await db
+        .collection("messages")
+        .find({
+          $or: [
+            { type: "message" },
+            { from: "Todos" },
+            { to: user, type: "private_message" },
+            { from: user, type: "private_message" },
+          ],
+        })
+        .sort({ time: -1 })
+        .limit(limit)
+        .toArray();
+      await client.close();
+      res.status(200).json(messages);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   });
 const PORT = 5000
