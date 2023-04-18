@@ -56,7 +56,7 @@ app.post("/participants", async (req, res) => {
     }
 })
 
-  app.get("/participants", async (req, res) => {
+app.get("/participants", async (req, res) => {
     try {
       const participants = await db.collection("participants").find().toArray();
       res.send(participants);
@@ -66,24 +66,30 @@ app.post("/participants", async (req, res) => {
     
   });
 
-  app.post('/messages', async (req, res) => {
+app.post('/messages', async (req, res) => {
     const { user } = req.headers;
-    const validation = messageSchema.validate(message, { abortEarly: false });
-    if (validation.error) {
-      return res.status(422).send(validation.error.details.map(detail => detail.message));
+    const { limit } = req.query
+    const numberLimit = Number(limit)
+    if(limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))){
+      return res.sendStatus(422)
     }
+  
     try {
-      const participant = await db.collection('participants').findOne({ name: user });
-      if (!participant) return res.sendStatus(422);
-      const { body } = req;
-      const message = { ...body, from: user, time: dayjs().format('HH:mm:ss') };
-      await db.collection('messages').insertOne(message);
-      res.sendStatus(201);
-    } catch (err) {
-      res.status(500).send(err.message);
+      const participant = await db.collection("participants").findOne({name})
+        if (participant) return res.sendStatus(409)
+        await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
+        const message = {
+            from: name,
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
+            time: dayjs(timestamp).format("HH:mm:ss")
+        }
+        await db.collection("messages").insertOne(message)
+        res.sendStatus(201)
     }
   });
-  app.get("/messages", async (req, res) => {
+app.get("/messages", async (req, res) => {
     try {
       const user = req.header("User");
       const limit = parseInt(req.query.limit);
